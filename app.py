@@ -1,16 +1,10 @@
 
 """
 Dashboard de Qualidade do Ar — Grandes Cidades Brasileiras
-Fonte de dados: simulada 
+Fonte de dados: Open-Meteo API
 """
 
 from __future__ import annotations
-
-import sys
-import os
-
-# Garante que os módulos locais sejam encontrados
-sys.path.insert(0, os.path.dirname(__file__))
 
 import datetime
 
@@ -73,7 +67,7 @@ footer    { visibility: hidden; }
 
 with st.sidebar:
     st.markdown("## Qualidade do Ar")
-    st.markdown("Dados simulados com padrões realistas de **poluição brasileira**")
+    st.markdown("Dados reais via **Open-Meteo API** — gratuito e sem registro")
     st.divider()
 
     cidade_opcoes = ["Todas"] + sorted(CIDADES_ALVO)
@@ -232,7 +226,7 @@ with tab1:
         )
 
         if not df_mapa.empty:
-            fig_mapa = px.scatter_mapbox(
+            fig_mapa = px.scatter_map(
                 df_mapa,
                 lat="latitude",
                 lon="longitude",
@@ -248,7 +242,6 @@ with tab1:
                     "Péssimo": "#8F3F97",
                     "Desconhecido": "#AAAAAA",
                 },
-                mapbox_style="open-street-map",
                 zoom=3.5,
                 center={"lat": -14.0, "lon": -51.0},
                 height=450,
@@ -260,7 +253,7 @@ with tab1:
                 },
             )
             fig_mapa.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
-            st.plotly_chart(fig_mapa, use_container_width=True)
+            st.plotly_chart(fig_mapa, width="stretch")
         else:
             st.warning("Sem coordenadas disponíveis para exibir o mapa.")
 
@@ -291,7 +284,7 @@ with tab1:
                 height=450,
             )
             fig_linha.update_layout(legend_title_text="Cidade")
-            st.plotly_chart(fig_linha, use_container_width=True)
+            st.plotly_chart(fig_linha, width="stretch")
         else:
             st.info("Selecione ao menos um poluente para exibir a evolução diária do IQA.")
 
@@ -354,7 +347,7 @@ with tab2:
                 height=400,
                 showlegend=False,
             )
-            st.plotly_chart(fig_barras, use_container_width=True)
+            st.plotly_chart(fig_barras, width="stretch")
 
         st.subheader(f"Média Mensal de {pol_ativo} por Cidade")
 
@@ -388,7 +381,7 @@ with tab2:
                 height=350,
             )
             fig_heat.update_layout(xaxis_title="Mês", yaxis_title="Cidade")
-            st.plotly_chart(fig_heat, use_container_width=True)
+            st.plotly_chart(fig_heat, width="stretch")
 
         # Dispersão: data × concentração por cidade
         st.subheader(f"Dispersão: Concentração de {pol_ativo} por Cidade")
@@ -408,7 +401,7 @@ with tab2:
                     height=350,
                     opacity=0.7,
                 )
-                st.plotly_chart(fig_disp, use_container_width=True)
+                st.plotly_chart(fig_disp, width="stretch")
 
 # ABA 3 — Estações
 
@@ -419,7 +412,7 @@ with tab3:
     df_tabela = df_estacoes[["nome", "cidade", "iqa_categoria", "iqa_indice", "ultima_leitura"]].copy()
     df_tabela.columns = ["Nome", "Cidade", "Categoria IQA", "Índice IQA", "Última Leitura"]
     df_tabela["Status"] = df_tabela["Índice IQA"].apply(lambda x: "Ativo" if x > 0 else "Inativo")
-    st.dataframe(df_tabela, use_container_width=True, hide_index=True)
+    st.dataframe(df_tabela, width="stretch", hide_index=True)
 
     st.divider()
     st.subheader("Série Temporal por Cidade")
@@ -451,7 +444,7 @@ with tab3:
                 title=f"Série Temporal — {estacao_sel}",
                 height=400,
             )
-            st.plotly_chart(fig_est, use_container_width=True)
+            st.plotly_chart(fig_est, width="stretch")
         else:
             st.warning("Sem dados disponíveis para esta estação no período selecionado.")
 
@@ -463,8 +456,7 @@ with tab4:
     # Exibe o DataFrame no formato wide (uma linha por cidade × dia).
     # Cada cidade tem latitude/longitude únicos — sem repetição de valores
     # causada pelo formato long/melted usado nos gráficos.
-    _colunas_raw = ["data", "cidade", "estado", "pm25", "pm10", "no2", "co", "o3",
-                    "temperatura", "umidade", "iqa"]
+    _colunas_raw = ["data", "cidade", "estado", "pm25", "pm10", "no2", "co", "o3"]
     df_raw_base = df[_colunas_raw].copy()
 
     col_f1, col_f2 = st.columns(2)
@@ -482,10 +474,9 @@ with tab4:
         "data": "Data", "cidade": "Cidade", "estado": "Estado",
         "pm25": "PM2.5 (µg/m³)", "pm10": "PM10 (µg/m³)",
         "no2": "NO2 (µg/m³)", "co": "CO (ppm)", "o3": "O3 (µg/m³)",
-        "temperatura": "Temp. (°C)", "umidade": "Umidade (%)", "iqa": "IQA",
     })
 
-    st.dataframe(df_raw, use_container_width=True, hide_index=True)
+    st.dataframe(df_raw, width="stretch", hide_index=True)
     st.caption(f"Total de registros: {len(df_raw):,}")
 
     csv = df_raw.to_csv(index=False).encode("utf-8")
