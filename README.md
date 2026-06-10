@@ -1,6 +1,6 @@
 # Qualidade do Ar — Brasil
 
-Dashboard interativo de monitoramento de qualidade do ar para as dez maiores cidades brasileiras, construído com Streamlit e Plotly. Funciona completamente offline — sem API key, sem dependências externas.
+Dashboard interativo de monitoramento de qualidade do ar para as dez maiores cidades brasileiras, construído com Streamlit e Plotly. Os dados são carregados via **Open-Meteo API gratuita**, sem necessidade de registro.
 
 ---
 
@@ -24,10 +24,8 @@ projeto-ar/
 ├── requirements.txt        # Dependências Python
 ├── data/
 │   ├── __init__.py
-│   ├── generate_data.py    # Gerador de dados simulados → ar_brasil.parquet
-│   ├── loader.py           # Função carregar_dados() com cache
-│   ├── openaq_client.py    # Lista de cidades (integração API removida)
-│   └── ar_brasil.parquet   # Dados gerados (ignorado pelo git se configurado)
+│   ├── loader.py           # Função carregar_dados() via Open-Meteo API
+│   ├── openaq_client.py    # Lista de cidades e coordenadas
 └── utils/
     ├── __init__.py
     └── iqa.py              # Cálculo e faixas do IQA conforme CONAMA
@@ -64,23 +62,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Gere os dados simulados
+### 4. Execute o dashboard
 
 ```bash
-python data/generate_data.py
+streamlit run app.py
 ```
 
-Saída esperada:
-```
-Total de registros : 4.870
-Período            : 2025-01-01 → 2026-05-02
-Cidades            : Belo Horizonte, Brasília, Curitiba, ...
-Arquivo gerado     : data/ar_brasil.parquet
-```
+Acesse em `http://localhost:8501`.
 
-> O arquivo é gerado automaticamente na primeira execução do app, caso não exista.
-
-### 5. Execute o dashboard
+---
 
 ```bash
 streamlit run app.py
@@ -97,32 +87,18 @@ streamlit>=1.32
 pandas>=2.0
 numpy>=1.26
 plotly>=5.18
-pyarrow>=14.0
+requests>=2.31
 ```
 
 ---
 
-## Lógica de simulação
+## Dados reais via Open-Meteo
 
-Os dados são gerados em `data/generate_data.py` com as seguintes regras:
-
-- **Sazonalidade**: poluição 30–50 % maior no inverno (jun–ago) para cidades do Sul e Sudeste, simulando inversão térmica
-- **Queimadas**: Manaus recebe pico de PM2.5 (até 80+ µg/m³) entre setembro e novembro
-- **Frota e indústria**: São Paulo e Rio de Janeiro têm níveis cronicamente mais altos de PM2.5 e NO2
-- **Temperatura e umidade**: variação regional coerente — equatorial (Manaus), semiárido (Fortaleza/Recife), subtropical (Curitiba/Porto Alegre), cerrado (Brasília)
-- **Ruído**: distribuição lognormal via NumPy para evitar curvas perfeitas
+O app carrega os dados diretamente da Open-Meteo API para as cidades listadas no diretório `data/`. Não é necessário gerar ou armazenar um arquivo local.
 
 ---
 
-## Substituindo por dados reais
-
-1. Gere ou obtenha um arquivo com as colunas abaixo no formato Parquet:
-
-   `data`, `cidade`, `estado`, `latitude`, `longitude`, `pm25`, `pm10`, `no2`, `co`, `o3`, `temperatura`, `umidade`, `iqa`
-
-2. Salve como `data/ar_brasil.parquet`
-
-3. Execute `streamlit run app.py` — nenhuma outra alteração é necessária
+O app não requer arquivo local para dados: ele carrega as leituras diretamente da Open-Meteo API para as cidades monitoradas.
 
 ---
 
