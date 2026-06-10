@@ -1,27 +1,74 @@
 
 from __future__ import annotations
 
-import subprocess
-import sys
-from pathlib import Path
+from datetime import datetime
 
 import pandas as pd
+import requests
 import streamlit as st
 
-_PARQUET = Path(__file__).parent / "ar_brasil.parquet"
-_GENERATOR = Path(__file__).parent / "generate_data.py"
+from data.openaq_client import CIDADES_ALVO, COORDENADAS, ESTADOS
+
+BASE_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
+HOURLY_PARAMS = "pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone"
+TIMEZONE = "America/Sao_Paulo"
+START_DATE = "2025-01-01"
 
 
-@st.cache_data
+@st.cache_data(ttl=3600)
 def carregar_dados() -> pd.DataFrame:
-    """Lê data/ar_brasil.parquet e retorna o DataFrame.
+    """Busca dados reais via Open-Meteo e retorna DataFrame diário."""
+    all_rows: list[pd.DataFrame] = []
+    end_date = datetime.now().date().isoformat()
 
-    Se o arquivo não existir, executa generate_data.py automaticamente
-    antes de carregar.
-    """
-    if not _PARQUET.exists():
-        subprocess.run([sys.executable, str(_GENERATOR)], check=True)
+    for cidade in CIDADES_ALVO:
+        lat, lon = COORDENADAS[cidade]
+        try:
+            resp = requests.get(
+                BASE_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "start_date": START_DATE,
+                    "end_date": end_date,
+                    "hourly": HOURLY_PARAMS,
+                    "timezone": TIMEZONE,
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except requests.RequestException:
+            continue
 
-    df = pd.read_parquet(_PARQUET)
-    df["data"] = pd.to_datetime(df["data"])
-    return df
+        hourly = data.get("hourly", {})
+        times = hourly.get("time", [])
+        if not times:
+            continue
+
+        df = pd.DataFrame(
+            {
+                "data": times,
+                "pm25": hourly.get("pm2_5", []),
+                "pm10": hourly.get("pm10", []),
+                "no2": hourly.get("nitrogen_dioxide", []),
+                "co": hourly.get("carbon_monoxide", []),
+                "o3": hourly.get("ozone", []),
+            }
+        )
+        df["data"] = pd.to_datetime(df["data"])
+        df = df.groupby(df["data"].dt.date, as_index=False).mean()
+        df["data"] = pd.to_datetime(df["data"])
+        df["cidade"] = cidade
+        df["estado"] = ESTADOS[cidade]
+        df["latitude"] = lat
+        df["longitude"] = lon
+        df = df[["data", "cidade", "estado", "latitude", "longitude", "pm25", "pm10", "no2", "co", "o3"]]
+        all_rows.append(df)
+
+    if not all_rows:
+        return pd.DataFrame(
+            columns=["data", "cidade", "estado", "latitude", "longitude", "pm25", "pm10", "no2", "co", "o3"]
+        )
+
+    return pd.concat(all_rows, ignore_index=True)
